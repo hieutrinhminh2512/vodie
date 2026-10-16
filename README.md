@@ -1,5 +1,9 @@
 # 🎙️ VODIE - AI Horror Audio & Video Production Studio
 
+[![VODIE Studio CI Test Suite](https://github.com/hieutrinhminh2512/vodie/actions/workflows/ci.yml/badge.svg)](https://github.com/hieutrinhminh2512/vodie/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![License: CC0](https://img.shields.io/badge/License-CC0-lightgrey.svg)](assets/CREDITS.md)
+
 > **VODIE** là Studio tự động hóa sản xuất truyện ma, podcast kinh dị và video rùng rợn ứng dụng trí tuệ nhân tạo (AI Director Engine), xử lý âm thanh không gian 3D (Binaural Spatial Panning), kiểm định phát âm Whisper và render video đa nền tảng (YouTube 16:9 & TikTok/Shorts 9:16).
 
 ---
@@ -26,6 +30,10 @@
 - **Tự cắt Shorts/TikTok/Reels (9:16):** Thuật toán tự động tìm đoạn có điểm Tension cao trào nhất và trích xuất thành video ngắn 30–60 giây.
 - **Chia chương sách nói (M4B):** Tự động tạo Chapter Markers cho truyện dài.
 
+### 💻 Giao Diện Web Studio Trực Quan
+- Bảng điều khiển Web Dashboard tại `http://localhost:8000` với giao diện Dark Horror huyền bí.
+- Xem trực tiếp biểu đồ Tension Timeline, nghe thử Audio Master và xem Video MP4 ngay trên trình duyệt.
+
 ### ⚡ Tiện Ích & An Toàn Bản Quyền
 - **Hàng đợi chạy ngầm qua đêm (Batch Queue):** Thả 10+ truyện vào hàng đợi, tự resume nếu khởi động lại máy.
 - **Lưu dự án SQLite:** Quản lý kịch bản, lưu nháp và theo dõi lịch sử phiên bản.
@@ -43,6 +51,10 @@ vodie/
 ├── requirements.txt             # Danh sách thư viện Python
 ├── .gitignore                   # Cấu hình bỏ qua tệp tạm & media
 ├── demo_sample.txt              # Kịch bản mẫu thử nghiệm
+├── run_studio.bat               # Bấm đúp để mở Web Studio Dashboard
+├── run_pipeline.bat             # Bấm đúp để chạy Pipeline sinh Audio/Video
+├── run_tests.bat                # Bấm đúp để chạy toàn bộ Unit Tests
+├── .github/workflows/ci.yml     # CI/CD tự động test trên GitHub
 ├── config/
 │   ├── settings.yaml            # Cấu hình hệ thống toàn cục
 │   ├── voice_presets.yaml       # Cấu hình hiệu ứng giọng ma mị
@@ -50,14 +62,17 @@ vodie/
 │   └── moods.yaml               # Thiết lập không khí truyện
 ├── src/
 │   ├── main.py                  # Entrypoint điều phối Pipeline
-│   ├── config.py                # Nạp cấu hình YAML
+│   ├── config.py                # Nạp cấu hình YAML & Auto-detect FFmpeg
 │   ├── director/                # Giai đoạn 1: Đạo diễn AI & Sinh kịch bản
 │   ├── tts/                     # Giai đoạn 2: Giọng đọc & Chuẩn hóa ngữ âm
 │   ├── validator/               # Giai đoạn 3: Whisper ASR kiểm định phát âm
 │   ├── audio_engine/            # Giai đoạn 4: Âm thanh 3D, FX & Mixer
 │   ├── video_engine/            # Giai đoạn 5: Render Video 16:9 & Shorts 9:16
 │   ├── storage/                 # Giai đoạn 6: SQLite & Batch Queue
-│   └── safety/                  # An toàn bản quyền & AI Metadata
+│   ├── safety/                  # An toàn bản quyền & AI Metadata
+│   └── studio/                  # Web Studio Dashboard (FastAPI + HTML5)
+├── tests/
+│   └── test_vodie.py            # Bộ Unit Test tự động (Pytest)
 ├── assets/
 │   └── CREDITS.md               # Danh mục nguồn gốc bản quyền BGM & SFX
 └── output/                      # Thư mục lưu sản phẩm audio/video hoàn thiện
@@ -67,24 +82,23 @@ vodie/
 
 ## 🚀 HƯỚNG DẪN CÀI ĐẶT & CHẠY THỬ
 
-### 1. Cài đặt thư viện
+### Cách 1: Khởi động Web Studio trực quan (Khuyên dùng)
+Bấm đúp chuột vào tệp [`run_studio.bat`](run_studio.bat) hoặc chạy:
 ```bash
-pip install -r requirements.txt
+python -m uvicorn src.studio.server:app --reload
+```
+Trình duyệt sẽ tự động mở tại `http://localhost:8000`.
+
+### Cách 2: Chạy tự động qua dòng lệnh (CLI)
+Bấm đúp chuột vào [`run_pipeline.bat`](run_pipeline.bat) hoặc chạy:
+```bash
+python -u -m src.main --title "Chuyen_Ma_Da_Lat" --mood "kinh_di_nang"
 ```
 
-### 2. Chạy thử nghiệm ngay với kịch bản mẫu
+### Cách 3: Chạy bộ kiểm thử tự động (Unit Tests)
+Bấm đúp chuột vào [`run_tests.bat`](run_tests.bat) hoặc chạy:
 ```bash
-python -m src.main --title "Chuyen_Ma_Da_Lat" --mood "kinh_di_nang"
-```
-
-### 3. Đưa kịch bản tùy chỉnh của bạn vào
-```bash
-python -m src.main --script demo_sample.txt --title "Dem_Kinh_Hoang" --mood "tam_linh_dan_gian"
-```
-
-### 4. Dùng AI sáng tác truyện từ ý tưởng
-```bash
-python -m src.main --generate "ngôi nhà hoang ở Đà Lạt" --title "Biet_Thu_Co"
+pytest tests/ -v
 ```
 
 ---

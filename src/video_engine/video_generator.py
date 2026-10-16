@@ -1,13 +1,14 @@
 import subprocess
 from pathlib import Path
 from typing import Optional
+import shutil
 from ..config import SETTINGS
 
 
 class VideoGenerator:
     """
     Tạo Video MP4 đăng YouTube (16:9):
-    - Ảnh nền u tối / kinh dị
+    - Nền đen / u ám chuẩn điện ảnh
     - Sóng âm chuyển động (Dynamic Audio Waveform Visualizer)
     - Phụ đề cháy chữ theo nhịp đọc
     """
@@ -15,11 +16,11 @@ class VideoGenerator:
     def __init__(self):
         self.cfg = SETTINGS.get("video", {})
         self.resolution = self.cfg.get("resolution_horizontal", "1920x1080")
-        self.fps = self.cfg.get("fps", 30)
-        self.wave_color = self.cfg.get("waveform_color", "#e63946")
+        self.fps = self.cfg.get("fps", 25)
+        self.wave_color = self.cfg.get("waveform_color", "red")
 
     def generate_subtitles_srt(self, segments, audio_durations, srt_path: Path):
-        """Tạo tệp phụ đề SRT từ danh sách câu và thời lượng."""
+        """Tạo tệp phụ đề SRT từ danh sách câu và thời lượng thực tế."""
         current_time = 0.0
         with open(srt_path, "w", encoding="utf-8") as f:
             for i, (seg, dur) in enumerate(zip(segments, audio_durations), start=1):
@@ -46,24 +47,38 @@ class VideoGenerator:
         bg_image_path: Optional[Path] = None,
         srt_path: Optional[Path] = None
     ) -> bool:
-        """Render video hoàn chỉnh bằng lệnh ffmpeg."""
-        # Lệnh FFmpeg tạo sóng âm kết hợp nền tối
+        """Render video hoàn chỉnh bằng FFmpeg với sóng âm chuyển động."""
+        ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+
+        # Lệnh FFmpeg tạo sóng âm đỏ rực rỡ trên nền tối 1920x1080
+        filter_str = (
+            f"[0:a]showwaves=s=1280x360:mode=line:r=25:colors={self.wave_color}[waves]; "
+            f"color=c=0x0a0a0a:s=1920x1080:r=25[bg]; "
+            f"[bg][waves]overlay=(W-w)/2:(H-h)/2:shortest=1[v]"
+        )
+
         cmd = [
-            "ffmpeg", "-y",
+            ffmpeg_bin, "-y",
             "-i", str(audio_path),
-            "-filter_complex",
-            f"[0:a]showwaves=s=1280x240:mode=line:colors=red[v]",
+            "-filter_complex", filter_str,
             "-map", "[v]",
             "-map", "0:a",
             "-c:v", "libx264",
+            "-preset", "ultrafast",
             "-c:a", "aac",
             "-b:a", "192k",
             "-pix_fmt", "yuv420p",
+            "-shortest",
             str(output_mp4)
         ]
 
         try:
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True
+            )
             return True
         except Exception as e:
             print(f"[FFmpeg Warning] Không thể render video trực tiếp: {e}")

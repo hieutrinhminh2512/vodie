@@ -1,7 +1,38 @@
+import sys
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict
 import yaml
+
+# 1. Đảm bảo UTF-8 cho Windows console
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# 2. Tự động phát hiện FFmpeg trên Windows và gắn vào PATH trước khi load bất kỳ thư viện âm thanh nào
+if not shutil.which("ffmpeg"):
+    potential_dirs = [
+        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\ffmpeg\bin"),
+        r"C:\Program Files\ffmpeg\bin",
+    ]
+    for p in potential_dirs:
+        if os.path.exists(p):
+            os.environ["PATH"] = p + os.pathsep + os.environ.get("PATH", "")
+            break
+
+# 3. Import pydub an toàn
+try:
+    from pydub import AudioSegment
+    ffmpeg_exe = shutil.which("ffmpeg")
+    if ffmpeg_exe:
+        AudioSegment.converter = ffmpeg_exe
+except Exception:
+    pass
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"

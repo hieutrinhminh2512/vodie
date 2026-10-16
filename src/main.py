@@ -1,8 +1,19 @@
-import argparse
 import sys
+import argparse
 from pathlib import Path
 
+# Đảm bảo console UTF-8 trên Windows
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# Import config đầu tiên để thiết lập FFmpeg path và môi trường cho pydub
 from .config import SETTINGS, OUTPUT_DIR, TEMP_DIR
+from pydub import AudioSegment
+
 from .director.script_analyzer import HorrorScriptAnalyzer
 from .director.story_generator import StoryGenerator
 from .tts.engine import TTSEngine
@@ -15,27 +26,32 @@ from .storage.db import DatabaseManager
 from .safety.compliance import SafetyCompliance
 
 
+def log_print(msg: str):
+    print(msg, flush=True)
+
+
 def run_pipeline(script_text: str, project_title: str = "Truyện Ma Kinh Dị", mood: str = "kinh_di_nang"):
-    print(f"\n=======================================================")
-    print(f"🎬 VODIE STUDIO - BẮT ĐẦU SẢN XUẤT: {project_title}")
-    print(f"👻 Mood không khí: {mood.upper()}")
-    print(f"=======================================================\n")
+    log_print("\n" + "=" * 65)
+    log_print(f"[*] VODIE STUDIO - KHOI DONG SAN XUAT: {project_title}")
+    log_print(f"[*] Mood khong khi: {mood.upper()}")
+    log_print("=" * 65 + "\n")
 
     # GIAI ĐOẠN 6 (Khởi tạo): Lưu vào SQLite
     db = DatabaseManager()
     project_id = db.create_project(project_title, script_text, mood=mood)
-    print(f" [Giai đoạn 6] Đã lưu dự án vào SQLite DB (ID: {project_id})")
+    log_print(f"[Giai doan 6] Da luu du an vao SQLite DB (ID: {project_id})")
 
     # GIAI ĐOẠN 1: Đạo diễn Kịch bản AI
-    print("\n🧠 [Giai đoạn 1] Đạo diễn AI đang phân tích kịch bản...")
+    log_print("\n[Giai doan 1] Dao dien AI dang phan tich kich ban...")
     director = HorrorScriptAnalyzer(mood=mood)
     segments = director.analyze_text(script_text)
-    print(f"   -> Đã phân tách kịch bản thành {len(segments)} phân đoạn đạo diễn:")
+    log_print(f"   -> Da phan tach kich ban thanh {len(segments)} phan doan dao dien:")
     for seg in segments:
-        print(f"      • Câu #{seg.segment_id} [Tension: {seg.tension}/10 | Pos: {seg.spatial_position} | Speaker: {seg.speaker}]: \"{seg.text[:40]}...\"")
+        short_txt = seg.text[:38] + "..." if len(seg.text) > 38 else seg.text
+        log_print(f"      • Cau #{seg.segment_id} [Tension: {seg.tension}/10 | Pos: {seg.spatial_position} | Speaker: {seg.speaker}]: \"{short_txt}\"")
 
     # GIAI ĐOẠN 2 & 3: Tổng hợp Giọng đọc & Kiểm định Whisper
-    print("\n🎙️ [Giai đoạn 2 & 3] Tổng hợp TTS Tiếng Việt & Kiểm định Whisper...")
+    log_print("\n[Giai doan 2 & 3] Tong hop TTS Tieng Viet & Kiem dinh Whisper...")
     tts = TTSEngine()
     verifier = WhisperAudioVerifier()
     audio_files = []
@@ -50,8 +66,9 @@ def run_pipeline(script_text: str, project_title: str = "Truyện Ma Kinh Dị",
         )
         seg.pause_after = pause
 
-        # Tổng hợp câu thoại
+        # Tổng hợp câu thoại qua Edge-TTS
         seg_audio_path = TEMP_DIR / f"proj_{project_id}_seg_{seg.segment_id}.mp3"
+        log_print(f"   -> Dang tong hop cau #{seg.segment_id} (Giong: {seg.speaker}, Speed: {rate})...")
         tts.synthesize(
             text=seg.text,
             voice_id=seg.speaker,
@@ -59,41 +76,60 @@ def run_pipeline(script_text: str, project_title: str = "Truyện Ma Kinh Dị",
             output_path=seg_audio_path
         )
 
+        # Tính thời lượng audio thực tế
+        try:
+            audio_segment = AudioSegment.from_file(str(seg_audio_path))
+            dur_sec = len(audio_segment) / 1000.0
+        except Exception:
+            dur_sec = 2.0
+        durations.append(dur_sec)
+
         # Kiểm định chất lượng qua Whisper
         verification = verifier.verify_sentence(seg_audio_path, seg.text)
-        status_icon = "✓" if verification["passed"] else "⚠️"
-        print(f"   {status_icon} Câu #{seg.segment_id}: Giọng [{seg.speaker}] | Speed [{rate}] | Đạt chuẩn Whisper")
+        status_icon = "[OK]" if verification["passed"] else "[WARN]"
+        log_print(f"   {status_icon} Cau #{seg.segment_id}: Dat chuan am thanh (Thoi luong: {dur_sec:.1f}s)")
 
         audio_files.append(seg_audio_path)
-        durations.append(2.0)  # thời lượng ước lượng
 
     # GIAI ĐOẠN 4: Đạo diễn Âm thanh Không gian & Hiệu ứng Rợn Tóc Gáy
-    print("\n🎧 [Giai đoạn 4] Xử lý Âm thanh Không gian 3D, Preset Giọng Ma & Jump Scare...")
+    log_print("\n[Giai doan 4] Xu ly Am thanh Khong gian 3D, Preset Giong Ma & Jump Scare...")
     mixer = HorrorAudioMixer(mood=mood)
     master_voice = mixer.build_story_track(segments, audio_files)
 
-    master_audio_path = OUTPUT_DIR / f"{project_title}_master.mp3"
+    clean_title = "".join(c if c.isalnum() or c in "_-" else "_" for c in project_title)
+    master_audio_path = OUTPUT_DIR / f"{clean_title}_master.mp3"
     master_voice.export(str(master_audio_path), format="mp3")
-    print(f"   ✓ Đã hoàn thiện Master Audio: {master_audio_path}")
+    log_print(f"   [OK] Da xuat ban Master Audio: {master_audio_path}")
 
     # GIAI ĐOẠN 5: Render Video MP4 & Cắt Shorts
-    print("\n📺 [Giai đoạn 5] Render Video MP4 (16:9) & Phân đoạn Shorts (9:16)...")
+    log_print("\n[Giai doan 5] Render Video MP4 (16:9) & Phan doan Shorts (9:16)...")
     video_gen = VideoGenerator()
-    srt_path = OUTPUT_DIR / f"{project_title}_subtitles.srt"
+    srt_path = OUTPUT_DIR / f"{clean_title}_subtitles.srt"
     video_gen.generate_subtitles_srt(segments, durations, srt_path)
-    print(f"   ✓ Đã xuất tệp phụ đề cháy chữ: {srt_path}")
+    log_print(f"   [OK] Da xuat tep phu de chay chu: {srt_path}")
+
+    # Render video MP4 với sóng âm
+    video_output_path = OUTPUT_DIR / f"{clean_title}_video.mp4"
+    log_print("   [*] Dang render Video MP4 kem song am chuyen dong qua FFmpeg...")
+    rendered = video_gen.render_mp4(master_audio_path, video_output_path, srt_path=srt_path)
+    if rendered:
+        log_print(f"   [OK] Da render Video MP4 thanh cong: {video_output_path}")
 
     # Tìm đoạn cao trào làm Shorts TikTok/Reels
     climax_start, climax_end, climax_segs = ShortsCutter.find_climax_window(segments, durations, target_duration_sec=45.0)
-    print(f"   🔥 [Tự động cắt Shorts 9:16] Đoạn gay cấn nhất từ {climax_start:.1f}s đến {climax_end:.1f}s ({len(climax_segs)} câu cao trào)")
+    log_print(f"   [*] [Tu dong cat Shorts 9:16] Doan gay can nhat tu {climax_start:.1f}s den {climax_end:.1f}s ({len(climax_segs)} cau cao trao)")
 
     # GIAI ĐOẠN 6: Gắn Metadata An toàn & Hoàn tất
     SafetyCompliance.embed_ai_metadata(master_audio_path, title=project_title)
-    print("   🔒 [An toàn & Pháp lý] Đã gắn Metadata 'AI-Generated' và xác thực bản quyền")
+    log_print("   [OK] [An toan & Phap ly] Da gan Metadata 'AI-Generated' va xac thuc ban quyen")
 
-    print(f"\n🎉 XUẤT BẢN THÀNH CÔNG DỰ ÁN '{project_title}'!")
-    print(f"📁 Tệp Audio: {master_audio_path}")
-    print(f"📁 Phụ đề: {srt_path}\n")
+    log_print("\n" + "=" * 65)
+    log_print(f"[*] XUAT BAN THANH CONG DU AN '{project_title}'!")
+    log_print(f"    • Audio Master: {master_audio_path}")
+    if video_output_path.exists():
+        log_print(f"    • Video MP4:    {video_output_path}")
+    log_print(f"    • Phu de SRT:   {srt_path}")
+    log_print("=" * 65 + "\n")
 
 
 def main():
@@ -106,12 +142,12 @@ def main():
     args = parser.parse_args()
 
     if args.generate:
-        print(f"✨ Đang dùng AI để sáng tác truyện từ ý tưởng: '{args.generate}'...")
+        log_print(f"[*] Dang dung AI de sang tac truyen tu y tuong: '{args.generate}'...")
         story_gen = StoryGenerator()
         script_text = story_gen.generate_story(args.generate, mood=args.mood)
-        print("--- Kịch bản được tạo ---")
-        print(script_text)
-        print("-------------------------")
+        log_print("--- Kich ban duoc tao ---")
+        log_print(script_text)
+        log_print("-------------------------")
     elif args.script and Path(args.script).exists():
         with open(args.script, "r", encoding="utf-8") as f:
             script_text = f.read()
