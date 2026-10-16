@@ -3,6 +3,14 @@ app:
   version: "1.0.0"
   description: "AI Horror Audio & Video Production Studio"
 
+tts:
+  # auto = VieNeu-TTS nếu đã cài (khuyên dùng), không thì edge-tts
+  # vieneu | elevenlabs | edge
+  engine: "auto"
+  vieneu_mode: "v3turbo"   # v3turbo (chất lượng cao) | v3nano (máy rất yếu, chất lượng thấp hơn)
+  device: "auto"           # auto | cpu | cuda
+  temperature: 0.7         # 0.5 đều đều, ổn định – 0.9 biểu cảm hơn nhưng dễ đọc lỗi
+
 director:
   default_mood: "kinh_di_nang"
   enable_spatial_audio: true

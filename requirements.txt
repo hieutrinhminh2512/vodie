@@ -1,18 +1,23 @@
-# VODIE Core Dependencies
-edge-tts>=6.1.10
+# VODIE Core
+vieneu>=1.15.0          # VieNeu-TTS v3 Turbo: giọng Việt tự nhiên, clone giọng, chạy CPU (ONNX) hoặc GPU
+anthropic>=0.70.0       # Đạo diễn AI (Claude) — chỉ dùng khi có ANTHROPIC_API_KEY
+pydantic>=2.6
+edge-tts>=6.1.10        # Dự phòng khi chưa cài được VieNeu
+requests>=2.31          # ElevenLabs API (tùy chọn)
 pydub>=0.25.1
+imageio-ffmpeg>=0.5.1   # FFmpeg đóng gói sẵn, không cần cài FFmpeg riêng
+soundfile>=0.12
 numpy>=1.24.0
 scipy>=1.10.0
 pyyaml>=6.0.1
 rich>=13.7.0
 mutagen>=1.47.0
 
-# Speech Validation & ASR (Optional / Stage 3)
-# openai-whisper>=20231117
-
-# Audio & Video Production
-# ffmpeg-python>=0.2.0
-
-# Optional Web / GUI UI
+# Web Studio
 fastapi>=0.110.0
 uvicorn>=0.28.0
+
+# Test
+pytest>=8.0
+
+# GPU NVIDIA (tùy chọn, nhanh hơn ~20 lần): xem README mục "Chạy bằng GPU"

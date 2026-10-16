@@ -4,7 +4,6 @@ from .jumpscare import JumpScareController
 from .dynamic_pacing import DynamicPacingController
 from .voice_effects import VoiceEffectsProcessor
 from .mixer import HorrorAudioMixer
-from .breath_synthesizer import BreathSynthesizer
 from .vocal_mastering import VocalMasteringChain
 
 __all__ = [
@@ -13,6 +12,5 @@ __all__ = [
     "DynamicPacingController",
     "VoiceEffectsProcessor",
     "HorrorAudioMixer",
-    "BreathSynthesizer",
     "VocalMasteringChain",
 ]

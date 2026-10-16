@@ -8,7 +8,16 @@ from .voice_effects import VoiceEffectsProcessor
 from .vocal_mastering import VocalMasteringChain
 from .bgm_synth import ProceduralHorrorBGM
 from ..director.script_analyzer import ScriptSegment
-from ..config import MOODS, SETTINGS
+from ..config import ASSETS_DIR, MOODS, SETTINGS
+
+
+def load_sfx(cue: str) -> Optional[AudioSegment]:
+    """Tìm assets/sfx/<cue>.wav|mp3|ogg. Không có file thì bỏ qua (không chèn tiếng giả)."""
+    for ext in ("wav", "mp3", "ogg", "flac"):
+        path = ASSETS_DIR / "sfx" / f"{cue}.{ext}"
+        if path.exists():
+            return AudioSegment.from_file(str(path))
+    return None
 
 
 class HorrorAudioMixer:
@@ -38,7 +47,8 @@ class HorrorAudioMixer:
             if not file_path.exists():
                 continue
 
-            sentence_audio = AudioSegment.from_file(str(file_path))
+            sentence_audio = (AudioSegment.from_file(str(file_path))
+                              .set_frame_rate(44100).set_sample_width(2))
 
             # 1. Áp dụng Voice Preset (ma_nu, quy_du, vong_hon) nếu có
             if seg.voice_preset:
@@ -49,17 +59,26 @@ class HorrorAudioMixer:
                     sentence_audio, speaker_style=self.speaker_style
                 )
 
+            # 1b. Âm lượng theo cảm xúc (thì thầm nhỏ, hét to)
+            gain = {"thi_tham": -4.0, "het": 2.0, "so_hai": -1.0}.get(getattr(seg, "emotion", ""), 0.0)
+            if gain:
+                sentence_audio = sentence_audio.apply_gain(gain)
+
             # 2. Áp dụng Spatial Panning (Binaural 3D)
             sentence_audio = SpatialAudioEngine.apply_panning(sentence_audio, seg.spatial_position)
 
-            # 3. Nối câu vào track chính
-            master_voice += sentence_audio
+            # 3. Nối câu vào track chính, SFX (nếu có file) lót nhỏ dưới câu
+            sfx = load_sfx(seg.sfx_cue) if seg.sfx_cue and not seg.is_jumpscare else None
+            if sfx is not None:
+                sfx = sfx.set_frame_rate(44100).set_channels(2)[: len(sentence_audio) + 1500] - 12
+                sentence_audio = sentence_audio.overlay(sfx.fade_out(400))
+            master_voice += sentence_audio.set_channels(2)
 
-            # 4. Chèn Jump scare hoặc SFX nếu có cue
+            # 4. Jump scare: im lặng nín thở rồi bật SFX (đã giới hạn peak)
             if seg.is_jumpscare:
-                sfx = AudioSegment.silent(duration=800)
-                js_segment = self.jumpscare_ctrl.create_jumpscare_segment(sfx)
-                master_voice += js_segment
+                js_sfx = load_sfx("jumpscare_screech") or AudioSegment.silent(duration=800)
+                js_segment = self.jumpscare_ctrl.create_jumpscare_segment(js_sfx.set_frame_rate(44100))
+                master_voice += js_segment.set_channels(2)
 
             # 5. Khoảng nghỉ (Pause ma mị)
             pause_ms = int(seg.pause_after * 1000)

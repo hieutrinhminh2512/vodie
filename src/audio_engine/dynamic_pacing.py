@@ -43,3 +43,16 @@ class DynamicPacingController:
             pause = 1.1
 
         return rate, pause
+
+    @staticmethod
+    def speed_for(tension: float, is_opening: bool = False, is_closing: bool = False) -> float:
+        """Hệ số tốc độ cho TTS (1.0 = tự nhiên). Biên độ nhỏ để giọng không bị méo/giả."""
+        if is_opening or is_closing:
+            return 0.93
+        if tension >= 8.0:
+            return 1.08
+        if tension >= 6.0:
+            return 1.04
+        if tension >= 4.0:
+            return 1.0
+        return 0.96

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from ..config import OUTPUT_DIR, SETTINGS
 from ..director.script_analyzer import HorrorScriptAnalyzer
+from ..tts.voice_manager import VoiceManager
 from ..director.story_generator import StoryGenerator
 from ..storage.db import DatabaseManager
 from ..main import run_pipeline
@@ -18,7 +19,7 @@ class ProduceRequest(BaseModel):
     title: str
     script: str
     mood: str = "kinh_di_nang"
-    speaker: str = "nguyen_ngoc_ngan"
+    speaker: str = "auto"
 
 
 class StoryGenRequest(BaseModel):
@@ -73,7 +74,8 @@ def analyze_script(req: ProduceRequest):
                 "tension": s.tension,
                 "position": s.spatial_position,
                 "speaker": s.speaker,
-                "is_jumpscare": s.is_jumpscare
+                "is_jumpscare": s.is_jumpscare,
+                "emotion": s.emotion,
             }
             for s in segments
         ]
@@ -145,12 +147,10 @@ def index():
                     
                     <div class="grid grid-cols-2 gap-4 mt-4">
                         <div>
-                            <label class="text-xs text-zinc-400 block mb-1">Nghệ Sĩ Kể Chuyện Ma (Voice Clone)</label>
+                            <label class="text-xs text-zinc-400 block mb-1">Giọng Người Kể</label>
                             <select id="speakerSelect" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-sm text-zinc-200">
-                                <option value="nguyen_ngoc_ngan">🎙️ Nguyễn Ngọc Ngạn (Trầm Ấm, Băng Cối Paris By Night)</option>
-                                <option value="dinh_soan">🎙️ Đình Soạn (Xúc Động, Ly Kỳ, Kịch Tính)</option>
-                                <option value="quang_a_tun">🎙️ Quàng A Tũn (Kỳ Bí, Lạnh Lẽo Tây Bắc)</option>
-                                <option value="nguoi_ke_nam">🎙️ Nữ Kể Nam Bộ (Ai Oán, Oan Khốc)</option>
+                                <option value="auto">🎙️ Tự chọn theo miền của truyện</option>
+                                __NARRATOR_OPTIONS__
                             </select>
                         </div>
                         <div>
@@ -326,4 +326,8 @@ def index():
 </body>
 </html>
     """
-    return HTMLResponse(content=html_content)
+    narrator_options = "\n".join(
+        f'<option value="{v.id}">🎙️ {v.name}</option>'
+        for v in VoiceManager().list_voices() if "narrator" in v.tags or v.is_cloned
+    )
+    return HTMLResponse(content=html_content.replace("__NARRATOR_OPTIONS__", narrator_options))

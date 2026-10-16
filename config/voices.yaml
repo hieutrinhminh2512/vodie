@@ -1,0 +1,94 @@
+# Thư viện giọng đọc
+# - vieneu: tên giọng dựng sẵn của VieNeu-TTS v3 Turbo (giọng người Việt thật, 3 miền)
+# - edge:   giọng dự phòng khi chưa cài VieNeu
+# - elevenlabs: voice_id nếu dùng engine elevenlabs (để trống nếu không dùng)
+#
+# Giọng "narrator_*" là người kể. Các giọng còn lại tự động được phân cho nhân vật
+# theo giới tính + miền của truyện (bà cụ -> giọng nữ, thằng Tèo -> giọng nam...).
+
+default_narrator: narrator_bac_nam
+
+voices:
+  # ---------------- Người kể ----------------
+  narrator_bac_nam:
+    name: "Người kể Bắc – nam, giọng kể chuyện (Thiện Minh)"
+    vieneu: "Thiện Minh"
+    region: bac
+    gender: nam
+    tags: [narrator]
+  narrator_bac_nam_tram:
+    name: "Người kể Bắc – nam, trầm chậm (Thiền Tâm Đức)"
+    vieneu: "Thiền Tâm Đức"
+    region: bac
+    gender: nam
+    age_group: gia
+    tags: [narrator]
+  narrator_bac_nam_2:
+    name: "Người kể Bắc – nam (Thanh Bình)"
+    vieneu: "Thanh Bình"
+    region: bac
+    gender: nam
+    tags: [narrator]
+  narrator_bac_nu:
+    name: "Người kể Bắc – nữ (Ngọc Linh)"
+    vieneu: "Ngọc Linh"
+    region: bac
+    gender: nu
+    tags: [narrator]
+  narrator_nam_nam:
+    name: "Người kể miền Nam – nam (Thái Sơn)"
+    vieneu: "Thái Sơn"
+    region: nam
+    gender: nam
+    tags: [narrator]
+  narrator_nam_nu:
+    name: "Người kể miền Nam – nữ (Thục Đoan)"
+    vieneu: "Thục Đoan"
+    region: nam
+    gender: nu
+    tags: [narrator]
+  narrator_trung_nam:
+    name: "Người kể miền Trung – nam (Quang Sơn)"
+    vieneu: "Quang Sơn"
+    region: trung
+    gender: nam
+    tags: [narrator]
+  narrator_trung_nu:
+    name: "Người kể miền Trung – nữ (Ngọc Trân)"
+    vieneu: "Ngọc Trân"
+    region: trung
+    gender: nu
+    tags: [narrator]
+
+  # ---------------- Giọng nhân vật ----------------
+  nv_bac_nam_1: {name: "Nhân vật Bắc – nam (Phạm Tuyên)", vieneu: "Phạm Tuyên", region: bac, gender: nam}
+  nv_bac_nam_2: {name: "Nhân vật Bắc – nam (Xuân Vĩnh)", vieneu: "Xuân Vĩnh", region: bac, gender: nam}
+  nv_bac_nam_3: {name: "Nhân vật Bắc – nam (Hải Đăng)", vieneu: "Hải Đăng", region: bac, gender: nam, age_group: thanh_nien}
+  nv_bac_nam_4: {name: "Nhân vật Bắc – nam (Quốc Tuấn)", vieneu: "Quốc Tuấn", region: bac, gender: nam, age_group: thanh_nien}
+  nv_bac_nu_1: {name: "Nhân vật Bắc – nữ (Đoan Trang)", vieneu: "Đoan Trang", region: bac, gender: nu}
+  nv_bac_nu_2: {name: "Nhân vật Bắc – nữ (Trúc Ly)", vieneu: "Trúc Ly", region: bac, gender: nu, age_group: thanh_nien}
+  nv_bac_nu_3: {name: "Nhân vật Bắc – nữ (Ngọc Huyền)", vieneu: "Ngọc Huyền", region: bac, gender: nu, age_group: thanh_nien}
+  nv_bac_nu_4: {name: "Nhân vật Bắc – nữ (Quỳnh Anh)", vieneu: "Quỳnh Anh", region: bac, gender: nu}
+  nv_nam_nam_1: {name: "Nhân vật Nam – nam (Đức Trí)", vieneu: "Đức Trí", region: nam, gender: nam}
+  nv_nam_nam_2: {name: "Nhân vật Nam – nam (Adam)", vieneu: "Adam", region: nam, gender: nam, age_group: thanh_nien}
+  nv_nam_nu_1: {name: "Nhân vật Nam – nữ (Mỹ Duyên)", vieneu: "Mỹ Duyên", region: nam, gender: nu}
+  nv_nam_nu_2: {name: "Nhân vật Nam – nữ (Kim Thanh)", vieneu: "Kim Thanh", region: nam, gender: nu, age_group: thanh_nien}
+
+# Giọng clone (giọng của chính bạn hoặc người đã đồng ý cho dùng).
+# Bỏ file .wav 3–8 giây vào thư mục voices/ rồi khai báo ở đây. Bắt buộc consent: true.
+cloned_voices:
+  # giong_cua_toi:
+  #   name: "Giọng của tôi"
+  #   file: voices/giong_cua_toi.wav
+  #   gender: nam
+  #   region: bac
+  #   consent: true
+
+# Tên cũ vẫn dùng được (dòng lệnh --speaker cũ)
+aliases:
+  auto: narrator_bac_nam
+  nguyen_ngoc_ngan: narrator_bac_nam_tram
+  dinh_soan: narrator_bac_nam
+  quang_a_tun: narrator_bac_nam_2
+  nguoi_ke_bac: narrator_bac_nam
+  nguoi_ke_nam: narrator_nam_nu

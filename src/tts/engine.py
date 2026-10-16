@@ -1,124 +1,94 @@
-import asyncio
+"""Điểm vào tổng hợp giọng: chuẩn hóa -> engine (VieNeu/ElevenLabs/edge) -> cắt lặng, chỉnh tốc độ -> cache."""
+from __future__ import annotations
+
+import hashlib
+import logging
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
-import os
 
+from pydub import AudioSegment
+from pydub.silence import detect_leading_silence
+
+from ..config import CACHE_DIR, SETTINGS
+from .backends import TTSBackend, create_backend
 from .text_normalizer import TextNormalizer
-from .voice_manager import VoiceManager
-from .humanizer import HorrorVoiceHumanizer
-from .clone_engine import VoiceCloneEngine
-from ..config import TEMP_DIR
+from .voice_manager import VoiceManager, VoiceProfile
+
+logger = logging.getLogger(__name__)
+CACHE_VERSION = "v3"
+
+
+def _trim_silence(seg: AudioSegment, keep_ms: int = 60) -> AudioSegment:
+    """Bỏ khoảng lặng thừa đầu/cuối do engine sinh ra; ngắt nghỉ do đạo diễn quyết định."""
+    thresh = seg.dBFS - 30 if seg.dBFS != float("-inf") else -60
+    start = max(0, detect_leading_silence(seg, silence_threshold=thresh) - keep_ms)
+    end = max(0, detect_leading_silence(seg.reverse(), silence_threshold=thresh) - keep_ms)
+    trimmed = seg[start: len(seg) - end]
+    return trimmed if len(trimmed) > 200 else seg
+
+
+def _change_tempo(path: Path, speed: float) -> None:
+    """Đổi tốc độ không đổi cao độ (ffmpeg atempo). Không có ffmpeg thì bỏ qua."""
+    ffmpeg = AudioSegment.converter if shutil.which(str(AudioSegment.converter)) else shutil.which("ffmpeg")
+    if not ffmpeg or abs(speed - 1.0) < 0.02:
+        return
+    tmp = path.with_name(path.stem + "_tempo" + path.suffix)
+    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(path), "-filter:a",
+                    f"atempo={speed:.3f}", str(tmp)], check=True)
+    tmp.replace(path)
 
 
 class TTSEngine:
-    """
-    Động cơ tổng hợp giọng đọc tiếng Việt chuyên nghiệp:
-    Tích hợp Động cơ Nhân hóa (Humanizer) và Sao chép phong cách giọng nghệ sĩ kể chuyện ma.
-    Loại bỏ triệt để cảm giác robot vô hồn, mang lại nhịp thở, ngắt nghỉ chân thực.
-    """
+    def __init__(self, engine: Optional[str] = None, dialect: str = "bac",
+                 voice_manager: Optional[VoiceManager] = None):
+        tts_cfg = SETTINGS.get("tts", {})
+        self.engine_name = engine or tts_cfg.get("engine", "auto")
+        self.backend: TTSBackend = create_backend(
+            self.engine_name,
+            mode=tts_cfg.get("vieneu_mode"),
+            device=tts_cfg.get("device"),
+            temperature=tts_cfg.get("temperature"),
+        )
+        self.normalizer = TextNormalizer(dialect=dialect)
+        self.voice_manager = voice_manager or VoiceManager()
+        logger.info("Engine giọng đọc: %s", self.backend.name)
 
-    def __init__(self):
-        self.normalizer = TextNormalizer()
-        self.voice_manager = VoiceManager()
-        self.humanizer = HorrorVoiceHumanizer()
-        self.clone_engine = VoiceCloneEngine()
-
-    async def synthesize_async(
-        self,
-        text: str,
-        voice_id: str = "nguyen_ngoc_ngan",
-        rate: str = None,
-        pitch: str = None,
-        tension: int = 5,
-        is_opening: bool = False,
-        humanize: bool = True,
-        output_path: Optional[Path] = None
-    ) -> Path:
-        """Tổng hợp một câu thành tệp audio theo phong cách nghệ sĩ kể chuyện ma người thật."""
-        normalized_text = self.normalizer.normalize(text)
-        voice_profile = self.voice_manager.get_voice(voice_id)
-
-        edge_voice = voice_profile.edge_voice if voice_profile else "vi-VN-NamMinhNeural"
-        final_pitch = pitch or (voice_profile.pitch_offset if voice_profile else "-20Hz")
-        final_rate = rate or (voice_profile.rate_offset if voice_profile else "-15%")
-
-        if output_path is None:
-            output_path = TEMP_DIR / f"tts_{hash(text)}_{os.getpid()}.mp3"
-
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if humanize:
-            try:
-                # Sử dụng Động cơ Nhân hóa (Humanizer) để ngắt vế câu và chèn hơi thở tự nhiên
-                humanized_seg = await self.humanizer.humanize_sentence_async(
-                    text=normalized_text,
-                    voice=edge_voice,
-                    base_rate=final_rate,
-                    base_pitch=final_pitch,
-                    tension=tension,
-                    is_opening=is_opening,
-                    speaker_style=voice_id
-                )
-                humanized_seg.export(str(output_path), format="mp3")
-                return output_path
-            except Exception as e:
-                print(f"[CẢNH BÁO HUMANIZER] Lỗi nhân hóa: {e}. Chuyển sang fallback tiêu chuẩn.")
-
-        try:
-            import edge_tts
-            communicate = edge_tts.Communicate(
-                normalized_text,
-                voice=edge_voice,
-                rate=final_rate,
-                pitch=final_pitch
-            )
-            await communicate.save(str(output_path))
-        except Exception as e:
-            print(f"[CẢNH BÁO TTS] edge-tts error: {e}. Tạo audio placeholder.")
-            self._generate_silence_placeholder(output_path, duration_sec=1.5)
-
-        return output_path
+    def cache_path(self, text: str, voice: VoiceProfile, emotion: str, nonverbal: Optional[str],
+                   speed: float) -> Path:
+        key = "|".join([CACHE_VERSION, self.backend.name, voice.cache_key(), emotion, nonverbal or "",
+                        f"{speed:.2f}", text])
+        digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:20]
+        return CACHE_DIR / "tts" / f"{digest}{self.backend.file_ext}"
 
     def synthesize(
         self,
         text: str,
-        voice_id: str = "nguyen_ngoc_ngan",
-        rate: str = None,
-        pitch: str = None,
-        tension: int = 5,
-        is_opening: bool = False,
-        humanize: bool = True,
-        output_path: Optional[Path] = None
+        voice: VoiceProfile | str = "narrator_bac_nam",
+        emotion: str = "binh_thuong",
+        nonverbal: Optional[str] = None,
+        speed: float = 1.0,
+        output_path: Optional[Path] = None,
     ) -> Path:
-        """Đồng bộ wrapper cho synthesize_async."""
-        return asyncio.run(
-            self.synthesize_async(
-                text=text,
-                voice_id=voice_id,
-                rate=rate,
-                pitch=pitch,
-                tension=tension,
-                is_opening=is_opening,
-                humanize=humanize,
-                output_path=output_path
-            )
-        )
-
-    def _generate_silence_placeholder(self, path: Path, duration_sec: float = 1.0):
-        """Tạo file wav/mp3 trống khi cần fallback offline."""
-        import wave
-        import struct
-        wav_path = path.with_suffix(".wav")
-        sample_rate = 44100
-        n_samples = int(sample_rate * duration_sec)
-        with wave.open(str(wav_path), 'w') as f:
-            f.setnchannels(1)
-            f.setsampwidth(2)
-            f.setframerate(sample_rate)
-            for _ in range(n_samples):
-                f.writeframes(struct.pack('<h', 0))
-        if path.suffix != ".wav":
-            try:
-                os.replace(wav_path, path)
-            except Exception:
-                pass
+        """Đọc 1 câu. Trả về đường dẫn file audio (đã cache — đọc lại câu cũ không tốn thời gian)."""
+        if isinstance(voice, str):
+            voice = self.voice_manager.get_voice(voice)
+        spoken = self.normalizer.normalize(text)
+        if not spoken.strip():
+            spoken = "..."
+        cached = self.cache_path(spoken, voice, emotion, nonverbal, speed)
+        if not (cached.exists() and cached.stat().st_size > 0):
+            raw = self.backend.synthesize(spoken, voice, cached, emotion=emotion, nonverbal=nonverbal)
+            seg = _trim_silence(AudioSegment.from_file(str(raw)))
+            fmt = raw.suffix.lstrip(".")
+            seg.export(str(raw), format=fmt)
+            _change_tempo(raw, speed)
+            if raw != cached:
+                raw.replace(cached)
+        if output_path is not None:
+            output_path = output_path.with_suffix(cached.suffix)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(cached, output_path)
+            return output_path
+        return cached

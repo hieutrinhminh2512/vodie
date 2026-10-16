@@ -1,6 +1,9 @@
 import sys
+import time
 import argparse
+import logging
 from pathlib import Path
+from typing import Optional
 
 # Đảm bảo console UTF-8 trên Windows
 if sys.platform.startswith("win"):
@@ -14,10 +17,9 @@ if sys.platform.startswith("win"):
 from .config import SETTINGS, OUTPUT_DIR, TEMP_DIR
 from pydub import AudioSegment
 
-from .director.script_analyzer import HorrorScriptAnalyzer
+from .director.llm_director import direct_story
 from .director.story_generator import StoryGenerator
 from .tts.engine import TTSEngine
-from .validator.audio_verifier import WhisperAudioVerifier
 from .audio_engine.dynamic_pacing import DynamicPacingController
 from .audio_engine.mixer import HorrorAudioMixer
 from .video_engine.video_generator import VideoGenerator
@@ -34,11 +36,12 @@ def run_pipeline(
     script_text: str,
     project_title: str = "Chuyen_Xe_Dem_Hai_Van",
     mood: str = "tam_linh_dan_gian",
-    speaker_style: str = "nguyen_ngoc_ngan"
+    speaker_style: str = "auto",
+    engine: Optional[str] = None,
+    use_llm: Optional[bool] = None,
 ):
     log_print("\n" + "=" * 70)
-    log_print(f"[*] VODIE HORROR STUDIO - SAN XUAT TRUONG THIEN: {project_title}")
-    log_print(f"[*] Phong cach giong ke: {speaker_style.upper()} (Tram am, ma mi, truyen cam)")
+    log_print(f"[*] VODIE HORROR STUDIO - SAN XUAT: {project_title}")
     log_print(f"[*] Mood khong khi: {mood.upper()}")
     log_print("=" * 70 + "\n")
 
@@ -47,67 +50,52 @@ def run_pipeline(
     project_id = db.create_project(project_title, script_text, mood=mood)
     log_print(f"[Giai doan 6] Da luu du an vao SQLite DB (ID: {project_id})")
 
-    # GIAI ĐOẠN 1: Đạo diễn Kịch bản AI
-    log_print("\n[Giai doan 1] Dao dien AI dang phan tich kich ban...")
-    director = HorrorScriptAnalyzer(default_speaker=speaker_style, mood=mood)
-    segments = director.analyze_text(script_text)
-    log_print(f"   -> Da phan tach kich ban thanh {len(segments)} phan doan dao dien:")
-    for seg in segments[:10]:
-        short_txt = seg.text[:38] + "..." if len(seg.text) > 38 else seg.text
-        log_print(f"      • Cau #{seg.segment_id} [Tension: {seg.tension}/10 | Pos: {seg.spatial_position} | Speaker: {seg.speaker}]: \"{short_txt}\"")
-    if len(segments) > 10:
-        log_print(f"      ... va {len(segments) - 10} cau tiep theo ...")
+    # GIAI ĐOẠN 1: Đạo diễn kịch bản (Claude nếu có ANTHROPIC_API_KEY, không thì theo luật)
+    log_print("\n[Giai doan 1] Dao dien dang phan tich kich ban...")
+    directed = direct_story(script_text, mood=mood, use_llm=use_llm)
+    segments = directed.segments
 
-    # GIAI ĐOẠN 2 & 3: Tổng hợp Giọng đọc & Kiểm định Whisper
-    log_print(f"\n[Giai doan 2 & 3] Tong hop giong doc phong cach {speaker_style}...")
-    tts = TTSEngine()
-    verifier = WhisperAudioVerifier()
+    # Phân vai: người kể theo miền của truyện (nếu chọn auto) + mỗi nhân vật 1 giọng riêng
+    tts = TTSEngine(engine=engine, dialect=directed.story_region)
+    vm = tts.voice_manager
+    narrator_id = f"narrator_{directed.story_region}_nam" if speaker_style in ("auto", "", None) else speaker_style
+    casting = vm.cast(narrator_id, directed.characters, directed.story_region)
+    log_print(f"   -> {len(segments)} cau | Boi canh: mien {directed.story_region} | Engine: {tts.backend.name}")
+    for role, voice in casting.items():
+        label = "Nguoi ke" if role == "narrator" else directed.characters[role].display_name
+        log_print(f"      • {label}: {voice.name}")
+
+    # GIAI ĐOẠN 2: Tổng hợp giọng đọc (có cache theo nội dung — chạy lại chỉ đọc câu đã sửa)
+    log_print("\n[Giai doan 2] Tong hop giong doc...")
     audio_files = []
     durations = []
-
     total_segs = len(segments)
+    started = time.time()
     for i, seg in enumerate(segments, start=1):
-        is_open = (i == 1)
-        is_close = (i == total_segs)
-        rate, pause = DynamicPacingController.calculate_rate_and_pause(
-            seg.tension, is_opening=is_open, is_closing=is_close
-        )
-        seg.pause_after = pause
-
-        # Chọn giọng: nếu câu có preset ma nữ hoặc quỷ dữ thì giữ nguyên, ngược lại dùng phong cách người kể
-        active_speaker = seg.speaker if seg.speaker in ["ma_nu", "quy_du", "vong_hon"] else speaker_style
-
-        # Cache file audio theo nội dung, người đọc và phiên bản humanized
-        content_hash = abs(hash(seg.text + active_speaker + "_v2_humanized")) % 1000000
-        seg_audio_path = TEMP_DIR / f"seg_{seg.segment_id}_{content_hash}.mp3"
-
-        # Nếu chưa có trong cache thì mới gọi TTS nhân hóa
-        if not seg_audio_path.exists() or seg_audio_path.stat().st_size == 0:
-            tts.synthesize(
-                text=seg.text,
-                voice_id=active_speaker,
-                rate=rate,
-                tension=seg.tension,
-                is_opening=is_open,
-                humanize=True,
-                output_path=seg_audio_path
-            )
-
+        voice = casting.get(seg.speaker, casting["narrator"])
+        # Nhịp theo độ căng (khi kịch bản chưa chỉ định speed riêng)
+        if seg.speed == 1.0 and SETTINGS.get("director", {}).get("enable_dynamic_pacing", True):
+            seg.speed = DynamicPacingController.speed_for(seg.tension, is_opening=(i == 1),
+                                                         is_closing=(i == total_segs))
         try:
-            audio_segment = AudioSegment.from_file(str(seg_audio_path))
-            dur_sec = len(audio_segment) / 1000.0
-        except Exception:
-            dur_sec = 8.0
+            path = tts.synthesize(seg.text, voice=voice, emotion=seg.emotion,
+                                  nonverbal=seg.nonverbal, speed=seg.speed)
+            dur_sec = len(AudioSegment.from_file(str(path))) / 1000.0
+        except Exception as e:  # noqa: BLE001 - 1 câu lỗi không làm hỏng cả truyện
+            log_print(f"   [LOI] Cau #{seg.segment_id}: {e}")
+            path = TEMP_DIR / f"missing_{seg.segment_id}.wav"
+            AudioSegment.silent(duration=500).export(str(path), format="wav")
+            dur_sec = 0.5
+        audio_files.append(path)
         durations.append(dur_sec)
-
-        if i % 5 == 0 or i == total_segs or seg.is_jumpscare or seg.speaker in ["ma_nu", "quy_du"]:
-            log_print(f"   [OK] [{i}/{total_segs}] Cau #{seg.segment_id} (Giong: {active_speaker}, Thoi luong: {dur_sec:.1f}s)")
-
-        audio_files.append(seg_audio_path)
+        if i % 5 == 0 or i == total_segs:
+            elapsed = time.time() - started
+            eta = elapsed / i * (total_segs - i)
+            log_print(f"   [{i}/{total_segs}] con lai ~{eta:.0f}s")
 
     # GIAI ĐOẠN 4: Mastering Âm Thanh Không Gian 3D, Nhạc Nền Dark Ambient & Jump Scare
     log_print("\n[Giai doan 4] Mastering Am thanh: Khử chat AI, lót Dark Drone BGM, Panning 3D...")
-    mixer = HorrorAudioMixer(mood=mood, speaker_style=speaker_style)
+    mixer = HorrorAudioMixer(mood=mood, speaker_style=narrator_id)
     master_voice = mixer.build_story_track(segments, audio_files)
 
     clean_title = "".join(c if c.isalnum() or c in "_-" else "_" for c in project_title)
@@ -153,7 +141,10 @@ def main():
     parser.add_argument("--script", type=str, help="Đường dẫn tệp kịch bản truyện (.txt)")
     parser.add_argument("--title", type=str, default="Chuyen_Xe_Dem_Hai_Van", help="Tiêu đề truyện")
     parser.add_argument("--mood", type=str, default="tam_linh_dan_gian", help="Mood: nhe_nhang / kinh_di_nang / tam_linh_dan_gian / creepypasta")
-    parser.add_argument("--speaker", type=str, default="nguyen_ngoc_ngan", help="Phong cách: nguyen_ngoc_ngan / quang_a_tun / dinh_soan / nguoi_ke_bac")
+    parser.add_argument("--speaker", type=str, default="auto",
+                        help="Giọng người kể (xem config/voices.yaml), 'auto' = theo miền của truyện")
+    parser.add_argument("--engine", type=str, default=None, help="auto / vieneu / elevenlabs / edge")
+    parser.add_argument("--no-llm", action="store_true", help="Không dùng Claude, chỉ đạo diễn theo luật")
     parser.add_argument("--generate", type=str, help="Ý tưởng để AI tự viết truyện")
 
     args = parser.parse_args()
@@ -176,7 +167,11 @@ def main():
         else:
             script_text = "Đêm mưa bão đèo Hải Vân lạnh buốt..."
 
-    run_pipeline(script_text, project_title=args.title, mood=args.mood, speaker_style=args.speaker)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    for noisy in ("httpx", "httpx2", "huggingface_hub", "urllib3"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+    run_pipeline(script_text, project_title=args.title, mood=args.mood, speaker_style=args.speaker,
+                 engine=args.engine, use_llm=False if args.no_llm else None)
 
 
 if __name__ == "__main__":

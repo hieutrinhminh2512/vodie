@@ -20,7 +20,19 @@
   - `vong_hon`: Vang vọng từ xa (echo xa, lowpass filter).
 - **Hệ thống Mood:** Lựa chọn `nhe_nhang`, `kinh_di_nang`, `tam_linh_dan_gian`, `creepypasta` để tự động phối nhạc nền và mật độ SFX.
 
+### 🔊 Giọng Đọc Người Việt Thật (VieNeu-TTS)
+- **Engine mặc định: [VieNeu-TTS v3 Turbo](https://github.com/pnnbao97/VieNeu-TTS)** – model TTS tiếng Việt huấn luyện trên 10.000+ giờ giọng người Việt, 25 giọng dựng sẵn đủ **Bắc – Trung – Nam**, chạy được **trên CPU thường** (~2 lần thời gian thực), không cần GPU, miễn phí, giấy phép Apache 2.0.
+- **Mỗi nhân vật một giọng:** đạo diễn tách lời thoại khỏi lời dẫn, đoán vai qua cách xưng hô (*bà cụ thều thào*, *thằng Tèo hét*…) rồi tự phân giọng nam/nữ phù hợp, cùng miền với bối cảnh truyện.
+- **Người kể theo miền:** truyện ở miền Tây, Sài Gòn → giọng Nam; Huế, Quảng → giọng Trung; còn lại giọng Bắc. Số đếm cũng đọc theo miền (*nghìn/linh* – *ngàn/lẻ*).
+- **Clone giọng của bạn** từ clip 3–8 giây (xem mục "Thêm giọng của bạn").
+- Dự phòng: `edge-tts` (khi chưa cài được VieNeu), ElevenLabs `eleven_v3` (trả phí).
+
+### 🎬 Đạo Diễn AI Hiểu Văn Hóa Việt (tùy chọn)
+- Có `ANTHROPIC_API_KEY` trong `.env` → dùng Claude làm đạo diễn: hiểu xưng hô, ma da/ma lai/quỷ nhập tràng/vong, rằm tháng bảy, canh ba… để gán cảm xúc, nhịp kể, ngắt nghỉ, hiệu ứng như người kể chuyện ma thật. Giữ nguyên văn truyện, không viết lại.
+- Không có key → đạo diễn theo luật (miễn phí, vẫn tách thoại và phân vai).
+
 ### 🇻🇳 Đọc Tiếng Việt Chuẩn Xác
+- **Chuẩn hóa tự động:** số (*1975 → một nghìn chín trăm bảy mươi lăm*, *21 → hai mươi mốt*), ngày tháng (*15/8 → mười lăm tháng tám*, *tháng 4 → tháng tư*), giờ (*23h15*), tiền (*500k*, *1.250.000đ*), đơn vị (*km/h*, *°C*), phần trăm, số La Mã (*thế kỷ XIX*), số điện thoại, viết tắt (*TP.HCM*, *UBND*) và teencode (*ko, đc, ng*).
 - **Từ điển phát âm tùy chỉnh (`config/pronunciation_dict.yaml`):** Sửa lỗi đọc tên riêng ("Út Lụa"), địa danh, từ tiếng Anh ("creepypasta", "jump scare"), cổ ngữ tâm linh.
 - **Kiểm định giọng đọc bằng Whisper ASR:** Dùng Whisper nghe lại audio từng câu so với văn bản gốc. Tự động đọc lại (re-take tối đa 2 lần) nếu bị nuốt chữ hoặc ngọng.
 - **Tùy chọn giọng Bắc / Nam:** Linh hoạt chọn giọng kể chuyện và giọng nhân vật vùng miền.
@@ -81,6 +93,42 @@ vodie/
 ---
 
 ## 🚀 HƯỚNG DẪN CÀI ĐẶT & CHẠY THỬ
+
+### Bước 0: Cài đặt (chỉ 1 lần)
+1. Cài [Python 3.11+](https://www.python.org/downloads/) (nhớ tick **Add Python to PATH**).
+2. Bấm đúp [`cai_dat.bat`](cai_dat.bat). Script tạo môi trường riêng, cài thư viện, tải model giọng VieNeu (~600 MB, chỉ lần đầu) và đọc thử 1 câu.
+3. (Tùy chọn) Mở file `.env`, dán `ANTHROPIC_API_KEY` để bật đạo diễn AI.
+
+Không cần cài FFmpeg riêng – dự án dùng bản đóng gói sẵn của `imageio-ffmpeg`.
+
+### Thêm giọng của bạn (clone giọng)
+1. Thu một đoạn **3–8 giây**, nói rõ, phòng yên tĩnh, lưu thành `voices/giong_cua_toi.wav`.
+2. Mở `config/voices.yaml`, thêm vào mục `cloned_voices`:
+   ```yaml
+   giong_cua_toi:
+     name: "Giọng của tôi"
+     file: voices/giong_cua_toi.wav
+     gender: nam        # nam | nu
+     region: bac        # bac | trung | nam
+     consent: true      # xác nhận bạn có quyền dùng giọng này
+   ```
+3. Chọn giọng đó ở Web Studio hoặc chạy `--speaker giong_cua_toi`.
+
+> ⚠️ Chỉ clone giọng của chính bạn hoặc người đã đồng ý. Không dùng để giả mạo người khác.
+
+### Đổi engine giọng đọc
+Sửa `tts.engine` trong `config/settings.yaml`: `auto` (mặc định, VieNeu) · `vieneu` · `elevenlabs` · `edge`.
+`temperature` (0.5–0.9) chỉnh độ biểu cảm: thấp = đều, ổn định; cao = biểu cảm hơn.
+
+### Chạy bằng GPU NVIDIA (nhanh hơn nhiều, không bắt buộc)
+```bash
+.venv\Scripts\pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+.venv\Scripts\pip install "transformers==4.57.6"
+```
+Giữ `tts.device: auto` – VieNeu tự dùng GPU nếu có.
+
+### Thêm nhạc nền / hiệu ứng (SFX)
+Bỏ file vào `assets/sfx/` với đúng tên cue: `footsteps_creak`, `door_creak`, `wind_howl`, `rain_storm`, `dog_howl`, `owl`, `temple_bell`, `funeral_horn`, `water_drip`, `jumpscare_screech` (`.wav/.mp3/.ogg`). Không có file thì bỏ qua, không chèn tiếng giả. Nhớ ghi nguồn vào `assets/CREDITS.md`.
 
 ### Cách 1: Khởi động Web Studio trực quan (Khuyên dùng)
 Bấm đúp chuột vào tệp [`run_studio.bat`](run_studio.bat) hoặc chạy:
