@@ -10,13 +10,13 @@ class VideoGenerator:
     Tạo Video MP4 đăng YouTube (16:9):
     - Nền đen / u ám chuẩn điện ảnh
     - Sóng âm chuyển động (Dynamic Audio Waveform Visualizer)
-    - Phụ đề cháy chữ theo nhịp đọc
+    - Tối ưu hóa tốc độ render cho truyện dài 15-20 phút
     """
 
     def __init__(self):
         self.cfg = SETTINGS.get("video", {})
         self.resolution = self.cfg.get("resolution_horizontal", "1920x1080")
-        self.fps = self.cfg.get("fps", 25)
+        self.fps = 15  # 15 fps mượt mà cho sóng âm, render siêu nhanh
         self.wave_color = self.cfg.get("waveform_color", "red")
 
     def generate_subtitles_srt(self, segments, audio_durations, srt_path: Path):
@@ -47,13 +47,13 @@ class VideoGenerator:
         bg_image_path: Optional[Path] = None,
         srt_path: Optional[Path] = None
     ) -> bool:
-        """Render video hoàn chỉnh bằng FFmpeg với sóng âm chuyển động."""
+        """Render video hoàn chỉnh bằng FFmpeg tối ưu cho truyện dài."""
         ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
 
-        # Lệnh FFmpeg tạo sóng âm đỏ rực rỡ trên nền tối 1920x1080
+        # Lọc sóng âm mượt mà trên nền đen 1280x720 (chuẩn HD render cực nhanh)
         filter_str = (
-            f"[0:a]showwaves=s=1280x360:mode=line:r=25:colors={self.wave_color}[waves]; "
-            f"color=c=0x0a0a0a:s=1920x1080:r=25[bg]; "
+            f"[0:a]showwaves=s=1280x300:mode=line:r=15:colors={self.wave_color}[waves]; "
+            f"color=c=0x080808:s=1280x720:r=15[bg]; "
             f"[bg][waves]overlay=(W-w)/2:(H-h)/2:shortest=1[v]"
         )
 
@@ -65,6 +65,7 @@ class VideoGenerator:
             "-map", "0:a",
             "-c:v", "libx264",
             "-preset", "ultrafast",
+            "-threads", "0",
             "-c:a", "aac",
             "-b:a", "192k",
             "-pix_fmt", "yuv420p",
@@ -73,7 +74,7 @@ class VideoGenerator:
         ]
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

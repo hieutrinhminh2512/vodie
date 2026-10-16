@@ -9,7 +9,7 @@ from ..config import TEMP_DIR
 
 
 class TTSEngine:
-    """Động cơ tổng hợp giọng đọc tiếng Việt."""
+    """Động cơ tổng hợp giọng đọc tiếng Việt chuyên nghiệp."""
 
     def __init__(self):
         self.normalizer = TextNormalizer()
@@ -18,15 +18,18 @@ class TTSEngine:
     async def synthesize_async(
         self,
         text: str,
-        voice_id: str = "nguoi_ke_bac",
-        rate: str = "+0%",
-        pitch: str = "+0Hz",
+        voice_id: str = "nguyen_ngoc_ngan",
+        rate: str = None,
+        pitch: str = None,
         output_path: Optional[Path] = None
     ) -> Path:
-        """Tổng hợp một câu thành tệp audio."""
+        """Tổng hợp một câu thành tệp audio theo phong cách nghệ sĩ kể chuyện ma."""
         normalized_text = self.normalizer.normalize(text)
         voice_profile = self.voice_manager.get_voice(voice_id)
+
         edge_voice = voice_profile.edge_voice if voice_profile else "vi-VN-NamMinhNeural"
+        final_pitch = pitch or (voice_profile.pitch_offset if voice_profile else "-20Hz")
+        final_rate = rate or (voice_profile.rate_offset if voice_profile else "-15%")
 
         if output_path is None:
             output_path = TEMP_DIR / f"tts_{hash(text)}_{os.getpid()}.mp3"
@@ -38,12 +41,11 @@ class TTSEngine:
             communicate = edge_tts.Communicate(
                 normalized_text,
                 voice=edge_voice,
-                rate=rate,
-                pitch=pitch
+                rate=final_rate,
+                pitch=final_pitch
             )
             await communicate.save(str(output_path))
         except Exception as e:
-            # Fallback nếu offline hoặc không có edge-tts: tạo một đoạn audio im lặng hoặc log
             print(f"[CẢNH BÁO TTS] edge-tts error: {e}. Tạo audio placeholder.")
             self._generate_silence_placeholder(output_path, duration_sec=1.5)
 
@@ -52,9 +54,9 @@ class TTSEngine:
     def synthesize(
         self,
         text: str,
-        voice_id: str = "nguoi_ke_bac",
-        rate: str = "+0%",
-        pitch: str = "+0Hz",
+        voice_id: str = "nguyen_ngoc_ngan",
+        rate: str = None,
+        pitch: str = None,
         output_path: Optional[Path] = None
     ) -> Path:
         """Đồng bộ wrapper cho synthesize_async."""

@@ -40,15 +40,14 @@ class VoiceEffectsProcessor:
         echo_cfg = cfg.get("echo")
         if echo_cfg:
             delay_ms = echo_cfg.get("delay_ms", 250)
-            decay = echo_cfg.get("decay", 0.4)
-            echo_track = (processed - 6).fade_in(50)
+            echo_gain_db = -8.0  # Giảm 8dB cho tiếng vọng lặp lại
+            echo_track = (processed + echo_gain_db).fade_in(50)
             silence_delay = AudioSegment.silent(duration=delay_ms)
-            processed = processed.overlay(silence_delay + (echo_track * decay))
+            processed = processed.overlay(silence_delay + echo_track)
 
         # 4. Whisper / Reverb Mix
         reverb_cfg = cfg.get("reverb")
         if reverb_cfg:
-            # Tạo hiệu ứng vang mờ bằng 2 lớp delay nhẹ
             wet1 = (processed - 7)
             wet2 = (processed - 12)
             d1 = AudioSegment.silent(duration=70)

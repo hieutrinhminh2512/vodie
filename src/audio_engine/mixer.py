@@ -5,6 +5,8 @@ from pydub import AudioSegment
 from .spatial_panning import SpatialAudioEngine
 from .jumpscare import JumpScareController
 from .voice_effects import VoiceEffectsProcessor
+from .vocal_mastering import VocalMasteringChain
+from .bgm_synth import ProceduralHorrorBGM
 from ..director.script_analyzer import ScriptSegment
 from ..config import MOODS, SETTINGS
 
@@ -13,11 +15,12 @@ class HorrorAudioMixer:
     """
     Multi-Track Audio Mixer:
     - Lắp ráp giọng đọc từng câu kèm hiệu ứng không gian (Spatial Panning).
+    - Áp dụng Mastering Vocal Warmth (khử chất giọng AI thô).
+    - Tự động tạo BGM kinh dị Dark Ambient và Auto-Ducking.
     - Lồng ghép SFX và Jump scare đúng thời điểm.
-    - Nhạc nền BGM theo Mood kèm Auto-Ducking khi có giọng nói.
     """
 
-    def __init__(self, mood: str = "kinh_di_nang"):
+    def __init__(self, mood: str = "tam_linh_dan_gian"):
         self.mood = mood
         self.mood_cfg = MOODS.get(mood, {})
         self.jumpscare_ctrl = JumpScareController()
@@ -39,6 +42,9 @@ class HorrorAudioMixer:
             # 1. Áp dụng Voice Preset (ma_nu, quy_du, vong_hon) nếu có
             if seg.voice_preset:
                 sentence_audio = VoiceEffectsProcessor.apply_preset(sentence_audio, seg.voice_preset)
+            else:
+                # Áp dụng Mastering làm ấm giọng kể chuyện ma cho người dẫn
+                sentence_audio = VocalMasteringChain.apply_horror_mastering(sentence_audio)
 
             # 2. Áp dụng Spatial Panning (Binaural 3D)
             sentence_audio = SpatialAudioEngine.apply_panning(sentence_audio, seg.spatial_position)
@@ -48,16 +54,20 @@ class HorrorAudioMixer:
 
             # 4. Chèn Jump scare hoặc SFX nếu có cue
             if seg.is_jumpscare:
-                # Tạo tiếng giật mình rợn tóc gáy
-                sfx = AudioSegment.silent(duration=800)  # placeholder SFX
+                sfx = AudioSegment.silent(duration=800)
                 js_segment = self.jumpscare_ctrl.create_jumpscare_segment(sfx)
                 master_voice += js_segment
 
-            # 5. Khoảng nghỉ (Pause)
+            # 5. Khoảng nghỉ (Pause ma mị)
             pause_ms = int(seg.pause_after * 1000)
             master_voice += AudioSegment.silent(duration=pause_ms)
 
-        return master_voice
+        # 6. Tự động lót BGM kinh dị u ám (Dark Ambient Drone)
+        total_duration_sec = len(master_voice) / 1000.0
+        bgm_track = ProceduralHorrorBGM.generate_dark_ambient(total_duration_sec)
+
+        # Trộn nhạc nền với giọng đọc (giọng đọc lấn át -14dB BGM)
+        return self.mix_with_bgm(master_voice, bgm_track=bgm_track, ducking_db=-14.0)
 
     def mix_with_bgm(
         self,
@@ -69,14 +79,11 @@ class HorrorAudioMixer:
         if bgm_track is None:
             return voice_track
 
-        # Loop BGM cho đủ độ dài
         if len(bgm_track) < len(voice_track):
             loop_count = (len(voice_track) // len(bgm_track)) + 1
             bgm_track = bgm_track * loop_count
 
         bgm_track = bgm_track[:len(voice_track)]
-        # Hạ âm lượng BGM để tôn giọng đọc (Ducking)
         ducked_bgm = bgm_track.apply_gain(ducking_db)
 
-        # Trộn 2 track
         return ducked_bgm.overlay(voice_track)
