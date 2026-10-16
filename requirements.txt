@@ -1,0 +1,18 @@
+# VODIE Core Dependencies
+edge-tts>=6.1.10
+pydub>=0.25.1
+numpy>=1.24.0
+scipy>=1.10.0
+pyyaml>=6.0.1
+rich>=13.7.0
+mutagen>=1.47.0
+
+# Speech Validation & ASR (Optional / Stage 3)
+# openai-whisper>=20231117
+
+# Audio & Video Production
+# ffmpeg-python>=0.2.0
+
+# Optional Web / GUI UI
+fastapi>=0.110.0
+uvicorn>=0.28.0

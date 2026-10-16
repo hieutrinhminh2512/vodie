@@ -1,0 +1,33 @@
+moods:
+  nhe_nhang:
+    name: "Rùng Rợn Nhẹ Nhàng / Huyền Bí"
+    description: "Không khí u tịch, kỳ bí, nhạc nền mỏng, ít SFX đột ngột, nhịp đọc chậm rãi"
+    default_pacing_multiplier: 0.95
+    sfx_density: "low" # low, medium, high
+    bgm_style: "ambient_dark"
+    pause_scale: 1.1
+
+  kinh_di_nang:
+    name: "Kinh Dị Nặng / Sợ Hãi Tột Cùng"
+    description: "Nhịp tim đập dồn dập, nhiều điểm jump scare, SFX va đập, la hét, tension cao"
+    default_pacing_multiplier: 1.15
+    sfx_density: "high"
+    bgm_style: "heavy_suspense"
+    pause_scale: 0.85
+    allow_jumpscare: true
+
+  tam_linh_dan_gian:
+    name: "Tâm Linh Dân Gian Việt Nam"
+    description: "Tiếng gió lùa qua mái tranh, tiếng mõ gõ đêm khuya, chó sủa xa xăm, chuyện oan hồn"
+    default_pacing_multiplier: 0.9
+    sfx_density: "medium"
+    bgm_style: "folk_spiritual"
+    pause_scale: 1.25
+
+  creepypasta:
+    name: "Creepypasta / Kinh Dị Đô Thị Hiện Đại"
+    description: "Tiếng radio rè, sóng âm glitch méo mó, tiếng thì thầm qua tai nghe sát nút"
+    default_pacing_multiplier: 1.05
+    sfx_density: "medium"
+    bgm_style: "industrial_drone"
+    pause_scale: 1.0

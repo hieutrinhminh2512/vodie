@@ -1,0 +1,35 @@
+# Từ điển phát âm tùy chỉnh (Pronunciation Dictionary)
+# Dùng để thay thế trước khi chuyển vào TTS Engine nhằm đọc tiếng Việt chuẩn xác nhất
+
+exact_replacements:
+  # Tên riêng / Địa danh đặc biệt
+  "Út Lụa": "Út Lụa"
+  "Thất Sơn": "Thất Sơn"
+  "Chợ Lớn": "Chợ Lớn"
+  "Đà Lạt": "Đà Lạt"
+  "Ngã Bảy": "Ngã Bảy"
+
+  # Thuật ngữ tiếng Anh & Kinh dị
+  "creepypasta": "cờ ri pi pát ta"
+  "jump scare": "dầm sờ ke"
+  "jumpscare": "dầm sờ ke"
+  "podcast": "bót cát"
+  "streamer": "sờ tri mơ"
+  "audiobook": "ao đi ô búc"
+  "binaural": "bai no rồ"
+  "vlog": "vê lốc"
+  "youtube": "du túp"
+  "tiktok": "tíc tốc"
+
+  # Từ phiên âm & cổ ngữ tâm linh
+  "ma da": "ma da"
+  "quỷ nhập tràng": "quỷ nhập tràng"
+  "trùng tang": "trùng tang"
+  "hồn xiêu phách lạc": "hồn xiêu phách lạc"
+  "cúng cô hồn": "cúng cô hồn"
+
+acronyms:
+  "AI": "ây ai"
+  "TTS": "tê tê ét"
+  "SFX": "ét ép ích"
+  "BGM": "bê gờ mờ"

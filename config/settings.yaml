@@ -1,0 +1,38 @@
+app:
+  name: "VODIE"
+  version: "1.0.0"
+  description: "AI Horror Audio & Video Production Studio"
+
+director:
+  default_mood: "kinh_di_nang"
+  enable_spatial_audio: true
+  enable_dynamic_pacing: true
+  whisper_validation: true
+  whisper_model: "base" # tiny, base, small, medium
+  max_retakes: 2
+  wer_threshold: 0.25 # Tỷ lệ sai sót chấp nhận được
+
+audio:
+  sample_rate: 44100
+  channels: 2 # Stereo for binaural panning
+  true_peak_limit_dbtp: -1.0 # Jump scare volume safety cap
+  gentle_ear_mode: false # Chế độ dịu tai (giảm 4dB peak)
+  ducking_db: -14.0 # Mức giảm BGM khi có giọng đọc
+  silence_before_jumpscare_sec: 1.5
+
+video:
+  resolution_horizontal: "1920x1080"
+  resolution_vertical: "1080x1920"
+  fps: 30
+  waveform_color: "#e63946"
+  background_color: "#0b090a"
+  subtitle_font_size: 24
+  shorts_duration_sec: 60
+
+database:
+  path: "data/vodie.db"
+
+storage:
+  output_dir: "output"
+  temp_dir: "temp"
+  cache_dir: "cache"

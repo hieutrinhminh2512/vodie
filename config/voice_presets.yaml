@@ -1,0 +1,55 @@
+presets:
+  ma_nu:
+    name: "Ma Nữ Oan Khuất"
+    description: "Tiếng thì thầm lướt qua tai, ngân vang rợn người, cao độ the thé"
+    pitch_semitones: 3.5
+    reverb:
+      room_size: 0.85
+      damping: 0.2
+      wet_level: 0.55
+      dry_level: 0.7
+    distortion: 0.0
+    whisper_mix: 0.4
+    lowpass_cutoff_hz: 8000
+    highpass_cutoff_hz: 300
+
+  quy_du:
+    name: "Ác Quỷ / Ma Dữ"
+    description: "Giọng trầm đục, méo tiếng ghê rợn từ vực sâu"
+    pitch_semitones: -4.5
+    reverb:
+      room_size: 0.6
+      damping: 0.5
+      wet_level: 0.35
+      dry_level: 0.8
+    distortion: 0.25
+    whisper_mix: 0.0
+    lowpass_cutoff_hz: 5000
+    highpass_cutoff_hz: 80
+
+  vong_hon:
+    name: "Vong Hồn Từ Xa"
+    description: "Tiếng vọng âm u xa xăm như từ cõi âm dội về"
+    pitch_semitones: -1.0
+    reverb:
+      room_size: 0.95
+      damping: 0.1
+      wet_level: 0.65
+      dry_level: 0.5
+    echo:
+      delay_ms: 320
+      decay: 0.45
+    lowpass_cutoff_hz: 3200
+    highpass_cutoff_hz: 400
+
+  nguoi_ke_bac:
+    name: "Người Kể (Giọng Bắc)"
+    edge_tts_voice: "vi-VN-NamMinhNeural"
+    pitch_semitones: -0.5
+    rate: "+0%"
+
+  nguoi_ke_nam:
+    name: "Người Kể (Giọng Nam)"
+    edge_tts_voice: "vi-VN-HoaiMyNeural"
+    pitch_semitones: 0.0
+    rate: "+0%"
