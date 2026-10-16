@@ -56,6 +56,7 @@ MOODS = load_yaml("moods.yaml").get("moods", {})
 OUTPUT_DIR = BASE_DIR / SETTINGS.get("storage", {}).get("output_dir", "output")
 TEMP_DIR = BASE_DIR / SETTINGS.get("storage", {}).get("temp_dir", "temp")
 DATA_DIR = BASE_DIR / "data"
+ASSETS_DIR = BASE_DIR / "assets"
 
-for directory in [OUTPUT_DIR, TEMP_DIR, DATA_DIR]:
+for directory in [OUTPUT_DIR, TEMP_DIR, DATA_DIR, ASSETS_DIR]:
     directory.mkdir(parents=True, exist_ok=True)

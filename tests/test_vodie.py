@@ -135,3 +135,40 @@ def test_safety_compliance():
     assert SafetyCompliance.verify_voice_consent(True) is True
     with pytest.raises(PermissionError):
         SafetyCompliance.verify_voice_consent(False)
+
+
+def test_breath_synthesizer():
+    """Kiểm tra bộ tạo hơi thở tự nhiên của con người."""
+    from src.audio_engine.breath_synthesizer import BreathSynthesizer
+    breath_in = BreathSynthesizer.generate_breath("inhale", duration_ms=350)
+    assert len(breath_in) >= 200
+    assert breath_in.channels == 1
+    assert breath_in.frame_rate == 44100
+
+    gasp = BreathSynthesizer.generate_breath("gasp", duration_ms=300)
+    assert len(gasp) >= 200
+
+
+def test_voice_clone_engine():
+    """Kiểm tra VoiceCloneEngine quản lý các giọng nghệ sĩ Việt Nam."""
+    from src.tts.clone_engine import VoiceCloneEngine
+    engine = VoiceCloneEngine()
+    presets = engine.VOICE_PRESETS
+    assert "nguyen_ngoc_ngan" in presets
+    assert "dinh_soan" in presets
+    assert "quang_a_tun" in presets
+    assert presets["nguyen_ngoc_ngan"]["edge_voice"] == "vi-VN-NamMinhNeural"
+
+
+def test_horror_voice_humanizer_clause_splitting():
+    """Kiểm tra bộ ngắt vế câu biểu cảm tự nhiên."""
+    from src.tts.humanizer import HorrorVoiceHumanizer
+    humanizer = HorrorVoiceHumanizer()
+    text = "Chiếc xe bò lên đèo, giữa lúc trời mưa tầm tã... Bỗng nhiên, có tiếng gõ cửa!"
+    clauses = humanizer.split_into_expressive_clauses(text)
+    assert len(clauses) >= 3
+    # Xác nhận có vế chứa dấu ba chấm và dấu phẩy
+    puncts = [p for _, p in clauses]
+    assert any("," in p for p in puncts)
+    assert any("..." in p for p in puncts)
+

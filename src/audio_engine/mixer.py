@@ -15,13 +15,14 @@ class HorrorAudioMixer:
     """
     Multi-Track Audio Mixer:
     - Lắp ráp giọng đọc từng câu kèm hiệu ứng không gian (Spatial Panning).
-    - Áp dụng Mastering Vocal Warmth (khử chất giọng AI thô).
+    - Áp dụng Mastering Vocal Warmth (khử chất giọng AI thô ráp, tạo độ trầm ấm băng cối).
     - Tự động tạo BGM kinh dị Dark Ambient và Auto-Ducking.
     - Lồng ghép SFX và Jump scare đúng thời điểm.
     """
 
-    def __init__(self, mood: str = "tam_linh_dan_gian"):
+    def __init__(self, mood: str = "tam_linh_dan_gian", speaker_style: str = "nguyen_ngoc_ngan"):
         self.mood = mood
+        self.speaker_style = speaker_style
         self.mood_cfg = MOODS.get(mood, {})
         self.jumpscare_ctrl = JumpScareController()
 
@@ -43,8 +44,10 @@ class HorrorAudioMixer:
             if seg.voice_preset:
                 sentence_audio = VoiceEffectsProcessor.apply_preset(sentence_audio, seg.voice_preset)
             else:
-                # Áp dụng Mastering làm ấm giọng kể chuyện ma cho người dẫn
-                sentence_audio = VocalMasteringChain.apply_horror_mastering(sentence_audio)
+                # Áp dụng Mastering làm ấm giọng kể chuyện ma cho người dẫn theo phong cách
+                sentence_audio = VocalMasteringChain.apply_horror_mastering(
+                    sentence_audio, speaker_style=self.speaker_style
+                )
 
             # 2. Áp dụng Spatial Panning (Binaural 3D)
             sentence_audio = SpatialAudioEngine.apply_panning(sentence_audio, seg.spatial_position)

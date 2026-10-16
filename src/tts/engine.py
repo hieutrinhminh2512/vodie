@@ -5,15 +5,23 @@ import os
 
 from .text_normalizer import TextNormalizer
 from .voice_manager import VoiceManager
+from .humanizer import HorrorVoiceHumanizer
+from .clone_engine import VoiceCloneEngine
 from ..config import TEMP_DIR
 
 
 class TTSEngine:
-    """Động cơ tổng hợp giọng đọc tiếng Việt chuyên nghiệp."""
+    """
+    Động cơ tổng hợp giọng đọc tiếng Việt chuyên nghiệp:
+    Tích hợp Động cơ Nhân hóa (Humanizer) và Sao chép phong cách giọng nghệ sĩ kể chuyện ma.
+    Loại bỏ triệt để cảm giác robot vô hồn, mang lại nhịp thở, ngắt nghỉ chân thực.
+    """
 
     def __init__(self):
         self.normalizer = TextNormalizer()
         self.voice_manager = VoiceManager()
+        self.humanizer = HorrorVoiceHumanizer()
+        self.clone_engine = VoiceCloneEngine()
 
     async def synthesize_async(
         self,
@@ -21,9 +29,12 @@ class TTSEngine:
         voice_id: str = "nguyen_ngoc_ngan",
         rate: str = None,
         pitch: str = None,
+        tension: int = 5,
+        is_opening: bool = False,
+        humanize: bool = True,
         output_path: Optional[Path] = None
     ) -> Path:
-        """Tổng hợp một câu thành tệp audio theo phong cách nghệ sĩ kể chuyện ma."""
+        """Tổng hợp một câu thành tệp audio theo phong cách nghệ sĩ kể chuyện ma người thật."""
         normalized_text = self.normalizer.normalize(text)
         voice_profile = self.voice_manager.get_voice(voice_id)
 
@@ -35,6 +46,23 @@ class TTSEngine:
             output_path = TEMP_DIR / f"tts_{hash(text)}_{os.getpid()}.mp3"
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if humanize:
+            try:
+                # Sử dụng Động cơ Nhân hóa (Humanizer) để ngắt vế câu và chèn hơi thở tự nhiên
+                humanized_seg = await self.humanizer.humanize_sentence_async(
+                    text=normalized_text,
+                    voice=edge_voice,
+                    base_rate=final_rate,
+                    base_pitch=final_pitch,
+                    tension=tension,
+                    is_opening=is_opening,
+                    speaker_style=voice_id
+                )
+                humanized_seg.export(str(output_path), format="mp3")
+                return output_path
+            except Exception as e:
+                print(f"[CẢNH BÁO HUMANIZER] Lỗi nhân hóa: {e}. Chuyển sang fallback tiêu chuẩn.")
 
         try:
             import edge_tts
@@ -57,10 +85,24 @@ class TTSEngine:
         voice_id: str = "nguyen_ngoc_ngan",
         rate: str = None,
         pitch: str = None,
+        tension: int = 5,
+        is_opening: bool = False,
+        humanize: bool = True,
         output_path: Optional[Path] = None
     ) -> Path:
         """Đồng bộ wrapper cho synthesize_async."""
-        return asyncio.run(self.synthesize_async(text, voice_id, rate, pitch, output_path))
+        return asyncio.run(
+            self.synthesize_async(
+                text=text,
+                voice_id=voice_id,
+                rate=rate,
+                pitch=pitch,
+                tension=tension,
+                is_opening=is_opening,
+                humanize=humanize,
+                output_path=output_path
+            )
+        )
 
     def _generate_silence_placeholder(self, path: Path, duration_sec: float = 1.0):
         """Tạo file wav/mp3 trống khi cần fallback offline."""

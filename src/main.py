@@ -77,16 +77,19 @@ def run_pipeline(
         # Chọn giọng: nếu câu có preset ma nữ hoặc quỷ dữ thì giữ nguyên, ngược lại dùng phong cách người kể
         active_speaker = seg.speaker if seg.speaker in ["ma_nu", "quy_du", "vong_hon"] else speaker_style
 
-        # Cache file audio theo nội dung và người đọc
-        content_hash = abs(hash(seg.text + active_speaker)) % 1000000
+        # Cache file audio theo nội dung, người đọc và phiên bản humanized
+        content_hash = abs(hash(seg.text + active_speaker + "_v2_humanized")) % 1000000
         seg_audio_path = TEMP_DIR / f"seg_{seg.segment_id}_{content_hash}.mp3"
 
-        # Nếu chưa có trong cache thì mới gọi TTS
+        # Nếu chưa có trong cache thì mới gọi TTS nhân hóa
         if not seg_audio_path.exists() or seg_audio_path.stat().st_size == 0:
             tts.synthesize(
                 text=seg.text,
                 voice_id=active_speaker,
                 rate=rate,
+                tension=seg.tension,
+                is_opening=is_open,
+                humanize=True,
                 output_path=seg_audio_path
             )
 
@@ -104,7 +107,7 @@ def run_pipeline(
 
     # GIAI ĐOẠN 4: Mastering Âm Thanh Không Gian 3D, Nhạc Nền Dark Ambient & Jump Scare
     log_print("\n[Giai doan 4] Mastering Am thanh: Khử chat AI, lót Dark Drone BGM, Panning 3D...")
-    mixer = HorrorAudioMixer(mood=mood)
+    mixer = HorrorAudioMixer(mood=mood, speaker_style=speaker_style)
     master_voice = mixer.build_story_track(segments, audio_files)
 
     clean_title = "".join(c if c.isalnum() or c in "_-" else "_" for c in project_title)

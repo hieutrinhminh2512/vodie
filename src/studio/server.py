@@ -18,6 +18,7 @@ class ProduceRequest(BaseModel):
     title: str
     script: str
     mood: str = "kinh_di_nang"
+    speaker: str = "nguyen_ngoc_ngan"
 
 
 class StoryGenRequest(BaseModel):
@@ -82,7 +83,7 @@ def analyze_script(req: ProduceRequest):
 @app.post("/api/produce")
 def produce_project(req: ProduceRequest):
     clean_title = "".join(c if c.isalnum() or c in "_-" else "_" for c in req.title)
-    run_pipeline(req.script, project_title=clean_title, mood=req.mood)
+    run_pipeline(req.script, project_title=clean_title, mood=req.mood, speaker_style=req.speaker)
     return {
         "status": "success",
         "audio_url": f"/output/{clean_title}_master.mp3",
@@ -144,19 +145,31 @@ def index():
                     
                     <div class="grid grid-cols-2 gap-4 mt-4">
                         <div>
+                            <label class="text-xs text-zinc-400 block mb-1">Nghệ Sĩ Kể Chuyện Ma (Voice Clone)</label>
+                            <select id="speakerSelect" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-sm text-zinc-200">
+                                <option value="nguyen_ngoc_ngan">🎙️ Nguyễn Ngọc Ngạn (Trầm Ấm, Băng Cối Paris By Night)</option>
+                                <option value="dinh_soan">🎙️ Đình Soạn (Xúc Động, Ly Kỳ, Kịch Tính)</option>
+                                <option value="quang_a_tun">🎙️ Quàng A Tũn (Kỳ Bí, Lạnh Lẽo Tây Bắc)</option>
+                                <option value="nguoi_ke_nam">🎙️ Nữ Kể Nam Bộ (Ai Oán, Oan Khốc)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="text-xs text-zinc-400 block mb-1">Không Khí (Mood)</label>
                             <select id="moodSelect" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-sm text-zinc-200">
-                                <option value="kinh_di_nang">Kinh Dị Nặng (Suspense & Jump scare)</option>
                                 <option value="tam_linh_dan_gian">Tâm Linh Dân Gian Việt Nam</option>
+                                <option value="kinh_di_nang">Kinh Dị Nặng (Suspense & Jump scare)</option>
                                 <option value="creepypasta">Creepypasta Đô Thị Hiện Đại</option>
                                 <option value="nhe_nhang">Rùng Rợn Nhẹ Nhàng / Huyền Bí</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="text-xs text-zinc-400 block mb-1">Âm Thanh Không Gian (3D Panning)</label>
-                            <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-sm text-emerald-400">
-                                ✓ Bật chế độ nghe bằng tai nghe
-                            </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-3">
+                        <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs text-emerald-400 flex items-center gap-1.5">
+                            ✓ Động Cơ Nhân Hóa: Lấy hơi & Ngắt vế câu
+                        </div>
+                        <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs text-emerald-400 flex items-center gap-1.5">
+                            ✓ Âm Thanh Không Gian (Binaural 3D Panning)
                         </div>
                     </div>
 
@@ -281,7 +294,8 @@ def index():
                     body: JSON.stringify({
                         title: document.getElementById('projectTitle').value,
                         script: document.getElementById('scriptText').value,
-                        mood: document.getElementById('moodSelect').value
+                        mood: document.getElementById('moodSelect').value,
+                        speaker: document.getElementById('speakerSelect').value
                     })
                 });
                 const data = await res.json();
